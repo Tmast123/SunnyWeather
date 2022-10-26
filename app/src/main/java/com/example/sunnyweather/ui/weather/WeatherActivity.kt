@@ -1,21 +1,21 @@
 package com.example.sunnyweather.ui.weather
 
 
+import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.inputmethod.InputMethodManager
+import android.widget.*
 
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.RelativeLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.sunnyweather.R
 import com.example.sunnyweather.logic.model.Weather
 import com.example.sunnyweather.logic.model.getSky
@@ -25,7 +25,7 @@ import java.util.*
 class WeatherActivity : AppCompatActivity() {
 
     val viewModel by lazy { ViewModelProvider(this).get(WeatherViewModel::class.java) }
-
+    lateinit var swipeRefresh: SwipeRefreshLayout
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val decorView=window.decorView
@@ -42,9 +42,12 @@ class WeatherActivity : AppCompatActivity() {
         }
         if (viewModel.placeName.isEmpty()) {
             viewModel.placeName = intent.getStringExtra("place_name") ?: ""
-            Log.d("MyValue","${viewModel.placeName}")
         }
+
+
+        swipeRefresh=findViewById<SwipeRefreshLayout>(R.id.swipeRefresh)
         viewModel.weatherLiveData.observe(this, Observer { result ->
+
             val weather = result.getOrNull()
             if (weather != null) {
                 showWeatherInfo(weather)
@@ -52,11 +55,44 @@ class WeatherActivity : AppCompatActivity() {
                 Toast.makeText(this, "无法成功获取天气信息2", Toast.LENGTH_SHORT).show()
                 result.exceptionOrNull()?.printStackTrace()
             }
+            swipeRefresh.isRefreshing=false
+        })
+        swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
+        refreshWeather()
+        swipeRefresh.setOnRefreshListener {
+            refreshWeather()
+        }
+        val navBtn=findViewById<Button>(R.id.navBtn)
+        navBtn.setOnClickListener{
+            val drawerLayout=findViewById<DrawerLayout>(R.id.drawerLayout)
+            drawerLayout.openDrawer(GravityCompat.START)
+        }
+        val drawerLayout=findViewById<DrawerLayout>(R.id.drawerLayout)
+        drawerLayout.addDrawerListener(object:DrawerLayout.DrawerListener{
+            override fun onDrawerStateChanged(newState: Int){
+            }
+
+            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {
+            }
+
+            override fun onDrawerOpened(drawerView: View) {
+            }
+
+            override fun onDrawerClosed(drawerView: View) {
+                val manager=getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                manager.hideSoftInputFromWindow(drawerView.windowToken,InputMethodManager.HIDE_NOT_ALWAYS)
+            }
 
         })
-        viewModel.refreshWeather(viewModel.locationLng,viewModel.locationLat)
+
+
     }
 
+
+    fun refreshWeather() {
+        viewModel.refreshWeather(viewModel.locationLng, viewModel.locationLat)
+        swipeRefresh.isRefreshing=true
+    }
 
     private fun showWeatherInfo(weather: Weather) {
         val placeName=findViewById<TextView>(R.id.placeName)
@@ -85,7 +121,6 @@ class WeatherActivity : AppCompatActivity() {
             val skycon = daily.skycon[i]
             val temperature = daily.temperature[i]
 
-            val forecastLayout=findViewById<LinearLayout>(R.id.forecastLayout)
             val view = LayoutInflater.from(this).inflate(R.layout.forecast_item, forecastLayout, false)
             val dateInfo = view.findViewById(R.id.dateInfo) as TextView
             val skyIcon = view.findViewById(R.id.skyIcon) as ImageView
